@@ -1,0 +1,6 @@
+streamlit
+yfinance
+xgboost
+plotly
+pandas
+numpy
