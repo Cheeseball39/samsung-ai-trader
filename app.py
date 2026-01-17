@@ -130,12 +130,15 @@ with tab1:
     st.title("Daily Trading Intelligence")
     
     # Run Logic
+    # Run Logic
     if 'prediction' not in st.session_state:
-        st.session_state['prediction'] = None
-
-    if st.button("🔄 Analyze New Data", use_container_width=True):
-        with st.spinner("Connecting to Global Markets (KR, US)..."):
+        with st.spinner("Initializing AI Dashboard..."):
             st.session_state['prediction'] = get_live_prediction()
+
+    if st.button("🔄 Refresh Data", use_container_width=True):
+        with st.spinner("Fetching Latest Market Data..."):
+            st.session_state['prediction'] = get_live_prediction()
+            st.rerun()
 
     result = st.session_state['prediction']
 
@@ -220,8 +223,6 @@ with tab1:
             if 'history' in result:
                 hist_df = result['history']
                 hist_df.to_csv('prediction_history.csv')
-    else:
-        st.info("👋 Welcome! Click 'Analyze New Data' to generate today's trading signal.")
 
 # === Tab 2: History ===
 with tab2:
