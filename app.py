@@ -202,14 +202,17 @@ with tab2:
             else:
                 st.error("Could not generate history.")
     
-    # Force Refresh Button (Still useful for manual updates)
-    if st.button("🔄 Reset History (Fetch 2 Years)"):
-        with st.spinner("Regenerating history..."):
+    if should_regenerate:
+        with st.spinner("Upgrading history data to 2-year range (Auto)..."):
             res = get_live_prediction()
             if 'history' in res:
                 res['history'].to_csv('prediction_history.csv')
-                st.success("History updated!")
+                st.success("History upgraded to long-term data!")
                 st.rerun()
+            else:
+                st.error("Could not generate history.")
+    
+    # (Reset Button Removed as requested)
 
     if os.path.exists('prediction_history.csv'):
         hist_df = pd.read_csv('prediction_history.csv', index_col=0)
@@ -232,18 +235,23 @@ with tab2:
         # Stats (Recalculate for filtered view)
         total_days = len(filtered_df)
         if total_days > 0:
-            win_rate = (filtered_df['Strategy_Return'] > 0).mean() * 100
-            # Cumulative return for this period
+            # Strategy Return
             cum_ret = (np.exp(filtered_df['Strategy_Return'].cumsum()) - 1) * 100
             period_return = cum_ret.iloc[-1]
+            
+            # Buy & Hold Return (End Price / Start Price - 1)
+            # filtered_df is DOscending (Newest first)
+            start_price = filtered_df['Price'].iloc[-1]
+            end_price = filtered_df['Price'].iloc[0]
+            bh_return = (end_price / start_price - 1) * 100
         else:
-            win_rate = 0
             period_return = 0
+            bh_return = 0
         
         col1, col2, col3 = st.columns(3)
         col1.metric("Trading Days", f"{total_days} Days")
-        col2.metric("Period Return", f"{period_return:.2f}%")
-        col3.metric("Win Rate", f"{win_rate:.1f}%")
+        col2.metric("Model Return", f"{period_return:.2f}%", delta=f"{period_return - bh_return:.2f}% vs B&H")
+        col3.metric("Buy & Hold Return", f"{bh_return:.2f}%")
         
         # Chart
         st.subheader("Equity Curve (Selected Period)")
@@ -251,7 +259,17 @@ with tab2:
             # Re-sort for Chart (Chronological)
             chart_df = filtered_df.sort_index(ascending=True)
             equity = (np.exp(chart_df['Strategy_Return'].cumsum()) - 1) * 100
-            st.line_chart(equity)
+            
+            # Add B&H Equity for comparison
+            # Normalized B&H: (Price / StartPrice - 1) * 100
+            start_p = chart_df['Price'].iloc[0]
+            bh_equity = (chart_df['Price'] / start_p - 1) * 100
+            
+            comp_chart = pd.DataFrame({
+                'Model Strat': equity,
+                'Buy & Hold': bh_equity
+            })
+            st.line_chart(comp_chart)
         else:
             st.info("No data for selected period.")
         
@@ -260,6 +278,19 @@ with tab2:
         
         # formatting (Convert Log Return -> Simple Return for Display)
         display_df = filtered_df.copy()
+        
+        # Add Hit/Miss Logic
+        # Note: Log_Return and Strategy_Return are still floats here
+        def evaluate_result(row):
+            sig = row['Signal']
+            ret = row['Log_Return']
+            if sig == 'BUY':
+                return "✅ Win" if ret > 0 else "❌ Loss"
+            else: # HOLD
+                return "🛡️ Saved" if ret < 0 else "⚠️ Missed"
+
+        display_df['Match_Result'] = display_df.apply(evaluate_result, axis=1)
+        
         display_df['Log_Return'] = display_df['Log_Return'].apply(lambda x: f"{(np.exp(x)-1)*100:.2f}%")
         display_df['Strategy_Return'] = display_df['Strategy_Return'].apply(lambda x: f"{(np.exp(x)-1)*100:.2f}%")
         display_df['Prob_Up'] = display_df['Prob_Up'].apply(lambda x: f"{x:.2f}%")
@@ -269,10 +300,18 @@ with tab2:
         display_df = display_df.rename(columns={
             'Price': 'Close Price',
             'Log_Return': 'Daily Return',
-            'Strategy_Return': 'Strat Return'
+            'Strategy_Return': 'Strat Return',
+            'Match_Result': 'Hit/Miss'
         })
         
-        st.dataframe(display_df, use_container_width=True, height=500)
+        # Reorder columns
+        cols = ['date_used', 'Hit/Miss', 'Signal', 'Prob_Up', 'Close Price', 'Daily Return', 'Strat Return']
+        # Note: date_used is index. reset index to make it a column for display?
+        # st.dataframe handles index index automatically. Let's just pick columns.
+        cols_to_show = ['Hit/Miss', 'Signal', 'Prob_Up', 'Close Price', 'Daily Return', 'Strat Return']
+        # Check if other columns exist?
+        
+        st.dataframe(display_df[cols_to_show], use_container_width=True, height=500)
         
         st.download_button("Download CSV", hist_df.to_csv(), "prediction_history.csv", "text/csv")
 
