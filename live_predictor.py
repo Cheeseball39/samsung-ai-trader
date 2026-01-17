@@ -136,15 +136,40 @@ def get_live_prediction():
     model = xgb.XGBClassifier()
     model.load_model(model_path)
     
-    # --- Live Prediction (Last Row) ---
-    last_row = data_clean.iloc[-1:]
-    prob_up = model.predict_proba(last_row[features])[0, 1]
+    # --- Live Prediction (Future Forecast) ---
+    # To predict for T+1 (Tomorrow), we need features based on Data(T) (Today).
+    # Current 'last_row' is Day T. Its columns (Price, Vol_Change, etc.) are today's values.
+    # Its 'Lag1' columns are yesterday's values.
+    # We must construct a new input row where 'Lag1' features take Today's values.
+    
+    future_input = pd.DataFrame(index=[last_row.index[0] + datetime.timedelta(days=1)])
+    
+    # 1. Shift Standard Lag1 Features
+    # Feature_Lag1 (Input) <--- Column (Today)
+    future_input['Log_Return_Lag1'] = last_row['Log_Return'].values
+    future_input['Vol_Change_Lag1'] = last_row['Vol_Change'].values
+    future_input['LogReturn_US10Y_Lag1'] = last_row['LogReturn_US10Y'].values
+    future_input['LogReturn_SP500_Lag1'] = last_row['LogReturn_SP500'].values
+    future_input['RSI_Golden_Cross_Lag1'] = last_row['RSI_Golden_Cross'].values
+    future_input['Risk_Adj_Mom_Lag1'] = last_row['Risk_Adj_Mom'].values
+    
+    # 2. Shift Deep Lags
+    # Log_Return_Lag{k} (Input) <--- Log_Return_Lag{k-1} (Today)
+    future_input['Log_Return_Lag2'] = last_row['Log_Return_Lag1'].values
+    future_input['Log_Return_Lag3'] = last_row['Log_Return_Lag2'].values
+    future_input['Log_Return_Lag4'] = last_row['Log_Return_Lag3'].values
+    future_input['Log_Return_Lag5'] = last_row['Log_Return_Lag4'].values
+    
+    # Predict using the constructed Future Input
+    prob_up = model.predict_proba(future_input[features])[0, 1]
     
     threshold = 0.61
     signal = "BUY" if prob_up > threshold else "HOLD"
     
-    display_features = last_row[features].to_dict('records')[0]
-    display_features['Momentum_5D'] = last_row['Momentum_5D'].item()
+    # For display, we show the features that contributed to THIS prediction.
+    # i.e., the values from 'future_input'
+    display_features = future_input[features].to_dict('records')[0]
+    display_features['Momentum_5D'] = last_row['Momentum_5D'].item() # Keep purely informational
     
     live_result = {
         "status": "success",
