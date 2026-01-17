@@ -196,8 +196,7 @@ with tab1:
                 'Risk_Adj_Mom_Lag1': 'Risk Adj Momentum',
                 'LogReturn_SP500_Lag1': 'S&P 500 Return',
                 'LogReturn_US10Y_Lag1': 'US 10Y Yield Change',
-                'Vol_Change_Lag1': 'Volume Change',
-                'Log_Return_Lag1': 'Log Return Lag1'
+                'Vol_Change_Lag1': 'Volume Change'
             }
             
             plot_data = []
@@ -209,8 +208,8 @@ with tab1:
                     val_fmt = f"{val:.4f}"
                 plot_data.append({"Factor": label, "Value": val, "Display": val_fmt})
             
-            # 6 Columns for Key Metrics
-            cols = st.columns(6)
+            # 5 Columns for Key Metrics
+            cols = st.columns(5)
             for i, row in enumerate(plot_data):
                 with cols[i]:
                     st.metric(label=row['Factor'], value=row['Display'])
