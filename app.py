@@ -162,7 +162,7 @@ with tab1:
                 </div>
                 <div class="hero-right">
                     <div class="conf-label">
-                        <span>Model Confidence</span>
+                        <span>Bullish Probability</span>
                         <span style="font-weight:bold; font-size:1.5rem;">{prob:.1f}%</span>
                     </div>
                     <div class="progress-bg">

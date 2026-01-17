@@ -141,7 +141,7 @@ def get_live_prediction():
     prob_up = model.predict_proba(last_row[features])[0, 1]
     
     threshold = 0.61
-    signal = "BUY" if prob_up > threshold else "HOLD/CASH"
+    signal = "BUY" if prob_up > threshold else "HOLD"
     
     display_features = last_row[features].to_dict('records')[0]
     display_features['Momentum_5D'] = last_row['Momentum_5D'].item()
