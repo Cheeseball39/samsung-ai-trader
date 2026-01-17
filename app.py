@@ -172,18 +172,37 @@ with tab1:
 with tab2:
     st.header("📜 Prediction History (Since 2024-06-01)")
     
-    # Auto-load or Generate
+    # Logic to Auto-load or Force Regenerate if history is too short
+    should_regenerate = False
+    
     if not os.path.exists('prediction_history.csv'):
-        with st.spinner("Generating history from live data..."):
+        should_regenerate = True
+    else:
+        # Check if existing file is the "old version" (short history starting 2026)
+        try:
+            temp_df = pd.read_csv('prediction_history.csv', index_col=0)
+            if not temp_df.empty:
+                temp_df.index = pd.to_datetime(temp_df.index)
+                min_date = temp_df.index.min()
+                # If data starts after 2025-01-01, it's the old short version. We want 2024-06.
+                if min_date > pd.Timestamp("2025-01-01"):
+                    should_regenerate = True
+            else:
+                should_regenerate = True
+        except:
+            should_regenerate = True
+
+    if should_regenerate:
+        with st.spinner("Upgrading history data to 2-year range (Auto)..."):
             res = get_live_prediction()
             if 'history' in res:
                 res['history'].to_csv('prediction_history.csv')
-                st.success("History generated successfully!")
+                st.success("History upgraded to long-term data!")
                 st.rerun()
             else:
                 st.error("Could not generate history.")
     
-    # Force Refresh Button
+    # Force Refresh Button (Still useful for manual updates)
     if st.button("🔄 Reset History (Fetch 2 Years)"):
         with st.spinner("Regenerating history..."):
             res = get_live_prediction()
