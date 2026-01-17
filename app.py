@@ -24,7 +24,11 @@ OPTIMAL_FEATURES = [
 ]
 
 OPTIMAL_THRESHOLD = 0.47
-MODEL_PATH = 'optimized_model.json'
+
+# Get the directory where app.py is located
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, 'optimized_model.json')
+DATA_PATH = os.path.join(BASE_DIR, 'full_features_811.csv')
 
 # --- Custom CSS ---
 st.markdown("""
@@ -77,7 +81,7 @@ def load_model():
 def load_latest_data():
     """Load latest market data"""
     try:
-        data = pd.read_csv('full_features_811.csv', index_col=0, parse_dates=True)
+        data = pd.read_csv(DATA_PATH, index_col=0, parse_dates=True)
         return data
     except Exception as e:
         st.error(f"❌ Data load error: {e}")
