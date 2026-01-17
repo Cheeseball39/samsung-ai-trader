@@ -197,7 +197,7 @@ with tab1:
                 'LogReturn_SP500_Lag1': 'S&P 500 Return',
                 'LogReturn_US10Y_Lag1': 'US 10Y Yield Change',
                 'Vol_Change_Lag1': 'Volume Change',
-                'Momentum_5D': '5D Momentum'
+                'Log_Return_Lag1': 'Log Return Lag1'
             }
             
             plot_data = []
