@@ -88,6 +88,29 @@ st.markdown("""
         z-index: 10;
         box-shadow: 0 0 5px rgba(0,0,0,0.5);
     }
+    
+    @media (max-width: 768px) {
+        .hero-container {
+            flex-direction: column;
+            text-align: center;
+        }
+        .hero-left {
+            border-right: none;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-right: 0;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+        .hero-right {
+            padding-left: 0;
+            width: 100%;
+        }
+        .conf-label {
+            justify-content: center;
+            gap: 10px;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -111,7 +134,7 @@ with tab1:
             st.session_state['prediction'] = get_live_prediction()
             st.rerun()
             
-    st.caption("💡 **Best Timing: 15:20 ~ 15:30** (장 마감 직전 확인 후 동시호가 진입 추천)")
+    st.caption("💡 **Best Timing: 15:20 ~ 15:30** (장 마감 직전 확인 후 진입 추천)")
 
     result = st.session_state['prediction']
 
