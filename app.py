@@ -28,17 +28,65 @@ st.markdown("""
         color: white;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
     }
-    .big-signal {
-        font-size: 48px;
-        font-weight: 800;
-        text-align: center;
-        margin-bottom: 0px;
+    .hero-container {
+        border-radius: 20px;
+        padding: 30px;
+        color: white;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
-    .sub-signal {
-        font-size: 18px;
-        color: #a0a0a0;
-        text-align: center;
-        margin-top: -10px;
+    .hero-left {
+        flex: 1;
+        border-right: 1px solid rgba(255,255,255,0.2);
+        padding-right: 20px;
+    }
+    .hero-right {
+        flex: 1.5;
+        padding-left: 30px;
+    }
+    .signal-label {
+        font-size: 1rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        opacity: 0.8;
+        margin-bottom: 5px;
+    }
+    .signal-value {
+        font-size: 4rem;
+        font-weight: 800;
+        line-height: 1;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+    .conf-label {
+        font-size: 1.2rem;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+    }
+    .progress-bg {
+        background-color: rgba(255,255,255,0.1);
+        border-radius: 10px;
+        height: 15px;
+        width: 100%;
+        overflow: hidden;
+        position: relative;
+    }
+    .progress-fill {
+        height: 100%;
+        border-radius: 10px;
+        transition: width 1s ease-in-out;
+    }
+    .threshold-marker {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background-color: white;
+        z-index: 10;
+        box-shadow: 0 0 5px rgba(0,0,0,0.5);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -91,48 +139,42 @@ with tab1:
             
             st.markdown(f"#### 📅 Data Date: {date_used} (Market Close)")
             
-            # --- Top Dashboard (2 Columns) ---
-            col_left, col_right = st.columns(2)
+            # --- Hero Dashboard (Unified Design) ---
+            # Dynamic Colors
+            if signal == "BUY":
+                grad_bg = "linear-gradient(135deg, #004d26 0%, #00cc66 100%)"
+                res_color = "#ffffff"
+            elif prob < 40:
+                grad_bg = "linear-gradient(135deg, #4d0000 0%, #ff4b4b 100%)"
+                res_color = "#ffffff"
+            else:
+                grad_bg = "linear-gradient(135deg, #2c2c2c 0%, #7a7a7a 100%)"
+                res_color = "#e0e0e0"
             
-            with col_left:
-                # Signal Card
-                color = "#00cc66" if signal == "BUY" else "#ff4b4b" if prob < 40 else "#7a7a7a"
-                card_bg = "rgba(0, 204, 102, 0.1)" if signal == "BUY" else "rgba(122, 122, 122, 0.1)"
-                
-                st.markdown(f"""
-                <div class="metric-card" style="border: 2px solid {color}; background-color: {card_bg}; text-align: center; padding: 20px;">
-                    <div class="sub-signal" style="font-size: 1.2rem; margin-bottom: 10px;">ACTION SIGNAL</div>
-                    <div class="big-signal" style="color: {color}; font-size: 3.5rem; font-weight: 800;">{signal}</div>
+            # Progress Bar Logic
+            threshold_pct = 61
+            
+            st.markdown(f"""
+            <div class="hero-container" style="background: {grad_bg};">
+                <div class="hero-left">
+                    <div class="signal-label">AI Action Signal</div>
+                    <div class="signal-value" style="color: {res_color};">{signal}</div>
                 </div>
-                """, unsafe_allow_html=True)
-                
-                st.markdown("###") # Spacer
-                # Center the metric visually or just keep standard
-                st.metric(label="Win Probability", value=f"{prob:.2f}%", delta=f"{prob-61:.1f}% vs Threshold")
-
-            with col_right:
-                # Gauge Chart
-                fig = go.Figure(go.Indicator(
-                    mode = "gauge+number",
-                    value = prob,
-                    domain = {'x': [0, 1], 'y': [0, 1]},
-                    title = {'text': "<b>Model Confidence</b>", 'font': {'size': 20}},
-                    gauge = {
-                        'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "white"},
-                        'bar': {'color': color, 'thickness': 0.75},
-                        'bgcolor': "#1e2530",
-                        'borderwidth': 2,
-                        'bordercolor': "#333",
-                        'steps': [
-                            {'range': [0, 61], 'color': '#333'},
-                            {'range': [61, 100], 'color': '#262626'}],
-                        'threshold': {
-                            'line': {'color': "white", 'width': 4},
-                            'thickness': 0.8,
-                            'value': 61}}))
-                
-                fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font={'color': "white", 'family': "Arial"}, margin=dict(l=30, r=30, t=50, b=30))
-                st.plotly_chart(fig, use_container_width=True)
+                <div class="hero-right">
+                    <div class="conf-label">
+                        <span>Model Confidence</span>
+                        <span style="font-weight:bold; font-size:1.5rem;">{prob:.1f}%</span>
+                    </div>
+                    <div class="progress-bg">
+                        <div class="progress-fill" style="width: {prob}%; background-color: white;"></div>
+                        <div class="threshold-marker" style="left: {threshold_pct}%;" title="Threshold {threshold_pct}%"></div>
+                    </div>
+                    <div style="font-size: 0.8rem; margin-top: 5px; opacity: 0.8; text-align: right;">
+                        Target Threshold: {threshold_pct}%
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
             # --- Feature Analysis Section ---
             st.divider()
