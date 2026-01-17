@@ -91,24 +91,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- Sidebar ---
-with st.sidebar:
-    st.title("🛡️ Avengers AI")
-    st.markdown("---")
-    st.markdown("**Target Asset**")
-    st.info("Samsung Electronics (005930.KS)")
-    
-    st.markdown("**Model Specs**")
-    st.caption("Type: XGBoost Classifier")
-    st.caption("Features: S&P500, RSI, Momentum, Vol, US10Y")
-    st.caption("Threshold: 61.0%")
-    
-    st.markdown("---")
-    st.markdown("**Data History**")
-    st.caption("Recording since 2024-06-01")
-    
-    st.markdown("---")
-    st.markdown("Created by **Antigravity**")
+
 
 # --- Tabs ---
 tab1, tab2 = st.tabs(["🚀 Daily Signal", "📜 History & Records"])
