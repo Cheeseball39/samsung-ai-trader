@@ -82,6 +82,27 @@ def get_live_prediction():
     df_sam = dfs['Samsung']
     df_sp500 = dfs['SP500']
     df_us10y = dfs['US10Y']
+
+    # === Date Synchronization (Critical for 3:20 PM Live Data) ===
+    # Problem: At KR Market Close (Jan 16), US Market (Jan 16) hasn't opened yet.
+    # So yfinance SP500 ends at Jan 15. Inner Join drops Jan 16 Samsung row.
+    # Fix: If Samsung has a later date than SP500/US10Y, reindex them to match Samsung.
+    # We only need Lag1 features from them (i.e., Jan 15 data), so Jan 16 values don't matter for the model input.
+    
+    if not df_sam.empty:
+        last_date_sam = df_sam.index[-1]
+        
+        for name, df_ext in [('SP500', df_sp500), ('US10Y', df_us10y)]:
+            if not df_ext.empty and df_ext.index[-1] < last_date_sam:
+                # Reindex to include the new date. Forward fill is acceptable as placeholders
+                # because we only compute Lags.
+                # Actually, simply appending the last row with new date is safer to avoid NaNs.
+                new_row = pd.DataFrame(df_ext.iloc[-1:].values, columns=df_ext.columns, index=[last_date_sam])
+                # Update the unexpected dictionary reference?? No, update the local variable and the dict
+                df_updated = pd.concat([df_ext, new_row])
+                # We need to update the original variables used below
+                if name == 'SP500': df_sp500 = df_updated
+                if name == 'US10Y': df_us10y = df_updated
     
     # === Feature Engineering (Exact Replica) ===
     
