@@ -179,9 +179,19 @@ with tab2:
             if 'history' in res:
                 res['history'].to_csv('prediction_history.csv')
                 st.success("History generated successfully!")
+                st.rerun()
             else:
                 st.error("Could not generate history.")
     
+    # Force Refresh Button
+    if st.button("🔄 Reset History (Fetch 2 Years)"):
+        with st.spinner("Regenerating history..."):
+            res = get_live_prediction()
+            if 'history' in res:
+                res['history'].to_csv('prediction_history.csv')
+                st.success("History updated!")
+                st.rerun()
+
     if os.path.exists('prediction_history.csv'):
         hist_df = pd.read_csv('prediction_history.csv', index_col=0)
         hist_df.index = pd.to_datetime(hist_df.index)
