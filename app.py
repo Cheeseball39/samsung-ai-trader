@@ -239,12 +239,19 @@ with tab2:
         # Table
         st.subheader("Daily Logs")
         
-        # formatting
+        # formatting (Convert Log Return -> Simple Return for Display)
         display_df = filtered_df.copy()
-        display_df['Log_Return'] = display_df['Log_Return'].apply(lambda x: f"{x*100:.2f}%")
-        display_df['Strategy_Return'] = display_df['Strategy_Return'].apply(lambda x: f"{x*100:.2f}%")
+        display_df['Log_Return'] = display_df['Log_Return'].apply(lambda x: f"{(np.exp(x)-1)*100:.2f}%")
+        display_df['Strategy_Return'] = display_df['Strategy_Return'].apply(lambda x: f"{(np.exp(x)-1)*100:.2f}%")
         display_df['Prob_Up'] = display_df['Prob_Up'].apply(lambda x: f"{x:.2f}%")
         display_df['Price'] = display_df['Price'].apply(lambda x: f"{x:,.0f}")
+        
+        # Rename columns for clarity
+        display_df = display_df.rename(columns={
+            'Price': 'Close Price',
+            'Log_Return': 'Daily Return',
+            'Strategy_Return': 'Strat Return'
+        })
         
         st.dataframe(display_df, use_container_width=True, height=500)
         
