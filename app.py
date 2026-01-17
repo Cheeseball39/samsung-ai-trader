@@ -68,8 +68,7 @@ tab1, tab2 = st.tabs(["🚀 Daily Signal", "📜 History & Records"])
 # === Tab 1: Live Prediction ===
 with tab1:
     st.title("Daily Trading Intelligence")
-    st.markdown(f"#### {datetime.datetime.now().strftime('%Y-%m-%d')} Market Outlook")
-
+    
     # Run Logic
     if 'prediction' not in st.session_state:
         st.session_state['prediction'] = None
@@ -89,6 +88,8 @@ with tab1:
             signal = result['signal']
             date_used = result['date_used']
             features = result['features']
+            
+            st.markdown(f"#### 📅 Data Date: {date_used} (Market Close)")
             
             # --- Top Dashboard (2 Columns) ---
             col_left, col_right = st.columns([1, 2])
