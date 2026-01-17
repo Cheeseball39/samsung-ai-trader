@@ -108,18 +108,6 @@ with st.sidebar:
     st.caption("Recording since 2024-06-01")
     
     st.markdown("---")
-    st.markdown("**💡 Trading Tip**")
-    st.info("""
-    **Best Practice: 15:20 ~ 15:30**
-    
-    이 모델은 **종가 패턴**을 분석합니다.
-    장 마감 직전(15:20)에 확인한 신호로
-    **동시호가(3:30)**에 진입하는 것이
-    예측 정확도와 수익률을 극대화하는
-    가장 확실한 방법입니다.
-    """)
-    
-    st.markdown("---")
     st.markdown("Created by **Antigravity**")
 
 # --- Tabs ---
@@ -139,6 +127,8 @@ with tab1:
         with st.spinner("Fetching Latest Market Data..."):
             st.session_state['prediction'] = get_live_prediction()
             st.rerun()
+            
+    st.caption("💡 **Best Timing: 15:20 ~ 15:30** (장 마감 직전 확인 후 동시호가 진입 추천)")
 
     result = st.session_state['prediction']
 
