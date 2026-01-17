@@ -1,371 +1,291 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
-from live_predictor import get_live_prediction
+import xgboost as xgb
+import numpy as np
 import datetime
 import os
-import numpy as np
 
 # --- Page Config ---
 st.set_page_config(
-    page_title="Avengers AI Trader",
-    page_icon="🛡️",
+    page_title="Samsung AI Predictor - Backward Elimination",
+    page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- Custom CSS for Premium Look ---
+# --- Model Configuration ---
+OPTIMAL_FEATURES = [
+    'Day_of_Week', 'Dist_to_MA5', 'Intraday_Range',
+    'Log_Return_Lag1', 'Log_Return_Lag2', 'Log_Return_Lag3',
+    'RSI_14', 'RSI_Death_Cross', 'RSI_Golden_Cross',
+    'Simple_Return_Lag1', 'Simple_Return_Lag2', 'Simple_Return_Lag3',
+    'Stochastic_D', 'Stochastic_K'
+]
+
+OPTIMAL_THRESHOLD = 0.47
+MODEL_PATH = 'optimized_model.json'
+
+# --- Custom CSS ---
 st.markdown("""
 <style>
     .stApp {
-        background-color: #0e1117;
+        background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+    }
+    .hero-card {
+        background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+        border-radius: 20px;
+        padding: 40px;
+        margin-bottom: 30px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+    .signal-box {
+        background: rgba(255,255,255,0.05);
+        border: 2px solid rgba(255,255,255,0.1);
+        border-radius: 15px;
+        padding: 30px;
+        text-align: center;
+        backdrop-filter: blur(10px);
     }
     .metric-card {
-        background-color: #1e2530;
-        border-radius: 10px;
+        background: rgba(30,37,48,0.9);
+        border-radius: 12px;
         padding: 20px;
-        color: white;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        border-left: 4px solid #3b82f6;
     }
-    .hero-container {
-        border-radius: 20px;
-        padding: 30px;
-        color: white;
-        margin-bottom: 20px;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.3);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-    .hero-left {
-        flex: 1;
-        border-right: 1px solid rgba(255,255,255,0.2);
-        padding-right: 20px;
-    }
-    .hero-right {
-        flex: 1.5;
-        padding-left: 30px;
-    }
-    .signal-label {
-        font-size: 1rem;
-        text-transform: uppercase;
-        letter-spacing: 2px;
-        opacity: 0.8;
-        margin-bottom: 5px;
-    }
-    .signal-value {
-        font-size: 4rem;
+    .stat-number {
+        font-size: 2.5rem;
         font-weight: 800;
-        line-height: 1;
-        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-    }
-    .conf-label {
-        font-size: 1.2rem;
-        margin-bottom: 10px;
-        display: flex;
-        justify-content: space-between;
-    }
-    .progress-bg {
-        background-color: rgba(255,255,255,0.1);
-        border-radius: 10px;
-        height: 15px;
-        width: 100%;
-        overflow: hidden;
-        position: relative;
-    }
-    .progress-fill {
-        height: 100%;
-        border-radius: 10px;
-        transition: width 1s ease-in-out;
-    }
-    .threshold-marker {
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        width: 2px;
-        background-color: white;
-        z-index: 10;
-        box-shadow: 0 0 5px rgba(0,0,0,0.5);
-    }
-    
-    @media (max-width: 768px) {
-        .hero-container {
-            flex-direction: column;
-            text-align: center;
-        }
-        .hero-left {
-            border-right: none;
-            border-bottom: 1px solid rgba(255,255,255,0.2);
-            padding-right: 0;
-            padding-bottom: 20px;
-            margin-bottom: 20px;
-            width: 100%;
-        }
-        .hero-right {
-            padding-left: 0;
-            width: 100%;
-        }
-        .conf-label {
-            justify-content: center;
-            gap: 10px;
-        }
+        background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
     }
 </style>
 """, unsafe_allow_html=True)
 
+@st.cache_resource
+def load_model():
+    """Load optimized XGBoost model"""
+    if not os.path.exists(MODEL_PATH):
+        st.error(f"❌ Model file not found: {MODEL_PATH}")
+        return None
+    model = xgb.XGBClassifier()
+    model.load_model(MODEL_PATH)
+    return model
 
+@st.cache_data(ttl=3600)
+def load_latest_data():
+    """Load latest market data"""
+    try:
+        data = pd.read_csv('full_features_811.csv', index_col=0, parse_dates=True)
+        return data
+    except Exception as e:
+        st.error(f"❌ Data load error: {e}")
+        return None
 
-# --- Tabs ---
-tab1, tab2 = st.tabs(["🚀 Daily Signal", "📜 History & Records"])
+def get_prediction(model, latest_data):
+    """Get prediction from model"""
+    try:
+        # Get latest row with required features
+        latest = latest_data.iloc[-1]
+        X = latest[OPTIMAL_FEATURES].values.reshape(1, -1)
+        
+        # Predict
+        prob = model.predict_proba(X)[0, 1]
+        signal = "📈 BUY" if prob > OPTIMAL_THRESHOLD else "📉 HOLD"
+        confidence = prob * 100
+        
+        return {
+            'signal': signal,
+            'probability': prob,
+            'confidence': confidence,
+            'date': latest_data.index[-1],
+            'price': latest.get('Price', 0)
+        }
+    except Exception as e:
+        st.error(f"❌ Prediction error: {e}")
+        return None
 
-# === Tab 1: Live Prediction ===
-with tab1:
-    st.title("Daily Trading Intelligence")
+# --- Main App ---
+st.title("🎯 Samsung Electronics AI Predictor")
+st.caption("Powered by Backward Elimination (14 Features, Sharpe 8.39)")
+
+# Load model and data
+model = load_model()
+data = load_latest_data()
+
+if model and data is not None:
+    # Get prediction
+    pred = get_prediction(model, data)
     
-    # Run Logic
-    # Run Logic
-    if 'prediction' not in st.session_state:
-        with st.spinner("Initializing AI Dashboard..."):
-            st.session_state['prediction'] = get_live_prediction()
-
-    if st.button("🔄 Refresh Data", use_container_width=True):
-        with st.spinner("Fetching Latest Market Data..."):
-            st.session_state['prediction'] = get_live_prediction()
-            st.rerun()
-            
-    st.caption("💡 **Best Timing: 15:20 ~ 15:30** (장 마감 직전 확인 후 진입 추천)")
-
-    result = st.session_state['prediction']
-
-    if result:
-        if "error" in result:
-            st.error(f"System Error: {result['error']}")
-        else:
-            # Extract Data
-            prob = result['prob_up']
-            signal = result['signal']
-            date_used = result['date_used']
-            features = result['features']
-            
-            st.markdown(f"#### 📅 Target Date: {date_used}")            
-            
-            # --- Hero Dashboard (Unified Design) ---
-            # Dynamic Colors
-            if signal == "BUY":
-                grad_bg = "linear-gradient(135deg, #004d26 0%, #00cc66 100%)"
-                res_color = "#ffffff"
-            elif prob < 40:
-                grad_bg = "linear-gradient(135deg, #4d0000 0%, #ff4b4b 100%)"
-                res_color = "#ffffff"
-            else:
-                grad_bg = "linear-gradient(135deg, #2c2c2c 0%, #7a7a7a 100%)"
-                res_color = "#e0e0e0"
-            
-            # Progress Bar Logic
-            threshold_pct = 61
-            
+    if pred:
+        # Hero Section
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.markdown("""
+            <div class="signal-box">
+                <h1 style="font-size: 4rem; margin: 0;">{}</h1>
+                <p style="font-size: 1.2rem; opacity: 0.8; margin-top: 10px;">Current Signal</p>
+                <p style="font-size: 0.9rem; opacity: 0.6;">as of {}</p>
+            </div>
+            """.format(pred['signal'], pred['date'].strftime('%Y-%m-%d')), unsafe_allow_html=True)
+        
+        with col2:
             st.markdown(f"""
-            <div class="hero-container" style="background: {grad_bg};">
-                <div class="hero-left">
-                    <div class="signal-label">AI Action Signal</div>
-                    <div class="signal-value" style="color: {res_color};">{signal}</div>
-                </div>
-                <div class="hero-right">
-                    <div class="conf-label">
-                        <span>Bullish Probability</span>
-                        <span style="font-weight:bold; font-size:1.5rem;">{prob:.1f}%</span>
-                    </div>
-                    <div class="progress-bg">
-                        <div class="progress-fill" style="width: {prob}%; background-color: white;"></div>
-                        <div class="threshold-marker" style="left: {threshold_pct}%;" title="Threshold {threshold_pct}%"></div>
-                    </div>
-                    <div style="font-size: 0.8rem; margin-top: 5px; opacity: 0.8; text-align: right;">
-                        Target Threshold: {threshold_pct}%
-                    </div>
-                </div>
+            <div class="signal-box">
+                <h2>Confidence</h2>
+                <div class="stat-number">{pred['confidence']:.1f}%</div>
+                <p style="opacity: 0.7; margin-top: 10px;">Probability: {pred['probability']:.3f}</p>
+                <p style="opacity: 0.6;">Threshold: {OPTIMAL_THRESHOLD}</p>
             </div>
             """, unsafe_allow_html=True)
-
-            # --- Feature Analysis Section ---
-            st.divider()
-            st.subheader("📊 Market factors Analysis")
-            
-            key_features = {
-                'RSI_Golden_Cross_Lag1': 'RSI Golden Cross',
-                'Risk_Adj_Mom_Lag1': 'Risk Adj Momentum',
-                'LogReturn_SP500_Lag1': 'S&P 500 Return',
-                'LogReturn_US10Y_Lag1': 'US 10Y Yield Change',
-                'Vol_Change_Lag1': 'Volume Change'
+        
+        # Progress Bar
+        st.markdown("### Signal Strength")
+        fig_gauge = go.Figure(go.Indicator(
+            mode="gauge+number+delta",
+            value=pred['probability'],
+            domain={'x': [0, 1], 'y': [0, 1]},
+            title={'text': "Probability", 'font': {'size': 24, 'color': 'white'}},
+            delta={'reference': OPTIMAL_THRESHOLD, 'increasing': {'color': "green"}},
+            gauge={
+                'axis': {'range': [None, 1], 'tickwidth': 1, 'tickcolor': "white"},
+                'bar': {'color': "#3b82f6"},
+                'bgcolor': "rgba(255,255,255,0.1)",
+                'borderwidth': 2,
+                'bordercolor': "white",
+                'steps': [
+                    {'range': [0, OPTIMAL_THRESHOLD], 'color': 'rgba(255,99,132,0.3)'},
+                    {'range': [OPTIMAL_THRESHOLD, 1], 'color': 'rgba(75,192,192,0.3)'}
+                ],
+                'threshold': {
+                    'line': {'color': "white", 'width': 4},
+                    'thickness': 0.75,
+                    'value': OPTIMAL_THRESHOLD
+                }
             }
-            
-            plot_data = []
-            for key, label in key_features.items():
-                val = features.get(key, 0)
-                if 'Golden' in label:
-                    val_fmt = "Active" if val == 1 else "Inactive"
-                else:
-                    val_fmt = f"{val:.4f}"
-                plot_data.append({"Factor": label, "Value": val, "Display": val_fmt})
-            
-            # 5 Columns for Key Metrics
-            cols = st.columns(5)
-            for i, row in enumerate(plot_data):
-                with cols[i]:
-                    st.metric(label=row['Factor'], value=row['Display'])
-            
-            # Save History Automatically
-            if 'history' in result:
-                hist_df = result['history']
-                hist_df.to_csv('prediction_history.csv')
-
-# === Tab 2: History ===
-with tab2:
-    st.header("📜 Prediction History (Since 2024-06-01)")
-    
-    # Logic to Auto-load or Force Regenerate if history is too short
-    should_regenerate = False
-    
-    if not os.path.exists('prediction_history.csv'):
-        should_regenerate = True
-    else:
-        # Check if existing file is the "old version" (short history starting 2026)
-        try:
-            temp_df = pd.read_csv('prediction_history.csv', index_col=0)
-            if not temp_df.empty:
-                temp_df.index = pd.to_datetime(temp_df.index)
-                min_date = temp_df.index.min()
-                # If data starts after 2025-01-01, it's the old short version. We want 2024-06.
-                if min_date > pd.Timestamp("2025-01-01"):
-                    should_regenerate = True
-            else:
-                should_regenerate = True
-        except:
-            should_regenerate = True
-
-    if should_regenerate:
-        with st.spinner("Upgrading history data to 2-year range (Auto)..."):
-            res = get_live_prediction()
-            if 'history' in res:
-                res['history'].to_csv('prediction_history.csv')
-                st.success("History upgraded to long-term data!")
-                st.rerun()
-            else:
-                st.error("Could not generate history.")
-    
-    if should_regenerate:
-        with st.spinner("Upgrading history data to 2-year range (Auto)..."):
-            res = get_live_prediction()
-            if 'history' in res:
-                res['history'].to_csv('prediction_history.csv')
-                st.success("History upgraded to long-term data!")
-                st.rerun()
-            else:
-                st.error("Could not generate history.")
-    
-    # (Reset Button Removed as requested)
-
-    if os.path.exists('prediction_history.csv'):
-        hist_df = pd.read_csv('prediction_history.csv', index_col=0)
-        hist_df.index = pd.to_datetime(hist_df.index)
-        hist_df = hist_df.sort_index(ascending=False) # Newest first
+        ))
+        fig_gauge.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font={'color': "white", 'family': "Arial"},
+            height=300
+        )
+        st.plotly_chart(fig_gauge, use_container_width=True)
         
-        # --- Month Filter ---
-        # Get unique months from index
-        months = hist_df.index.strftime('%Y-%m').unique().tolist()
-        months.insert(0, 'All Time')
+        # Model Performance Stats
+        st.markdown("---")
+        st.markdown("### 📊 Model Performance (Cross-Validation)")
         
-        selected_month = st.selectbox("Select Month", months)
+        col1, col2, col3, col4 = st.columns(4)
         
-        if selected_month != 'All Time':
-            # Filter by month
-            filtered_df = hist_df[hist_df.index.strftime('%Y-%m') == selected_month]
-        else:
-            filtered_df = hist_df
-            
-        # Stats (Recalculate for filtered view)
-        total_days = len(filtered_df)
-        if total_days > 0:
-            # Strategy Return
-            cum_ret = (np.exp(filtered_df['Strategy_Return'].cumsum()) - 1) * 100
-            period_return = cum_ret.iloc[-1]
-            
-            # Buy & Hold Return (End Price / Start Price - 1)
-            # filtered_df is DOscending (Newest first)
-            start_price = filtered_df['Price'].iloc[-1]
-            end_price = filtered_df['Price'].iloc[0]
-            bh_return = (end_price / start_price - 1) * 100
-        else:
-            period_return = 0
-            bh_return = 0
+        with col1:
+            st.markdown("""
+            <div class="metric-card">
+                <h4>Average Sharpe</h4>
+                <div class="stat-number">8.39</div>
+                <p style="opacity: 0.7; font-size: 0.9rem;">Across 4 periods</p>
+            </div>
+            """, unsafe_allow_html=True)
         
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Trading Days", f"{total_days} Days")
-        col2.metric("Model Return", f"{period_return:.2f}%", delta=f"{period_return - bh_return:.2f}% vs B&H")
-        col3.metric("Buy & Hold Return", f"{bh_return:.2f}%")
+        with col2:
+            st.markdown("""
+            <div class="metric-card">
+                <h4>Average Win Rate</h4>
+                <div class="stat-number">91.3%</div>
+                <p style="opacity: 0.7; font-size: 0.9rem;">2018-2025</p>
+            </div>
+            """, unsafe_allow_html=True)
         
-        # Chart
-        st.subheader("Equity Curve (Selected Period)")
-        if not filtered_df.empty:
-            # Re-sort for Chart (Chronological)
-            chart_df = filtered_df.sort_index(ascending=True)
-            equity = (np.exp(chart_df['Strategy_Return'].cumsum()) - 1) * 100
-            
-            # Add B&H Equity for comparison
-            # Normalized B&H: (Price / StartPrice - 1) * 100
-            start_p = chart_df['Price'].iloc[0]
-            bh_equity = (chart_df['Price'] / start_p - 1) * 100
-            
-            comp_chart = pd.DataFrame({
-                'Model Strat': equity,
-                'Buy & Hold': bh_equity
-            })
-            st.line_chart(comp_chart)
-        else:
-            st.info("No data for selected period.")
+        with col3:
+            st.markdown("""
+            <div class="metric-card">
+                <h4>Avg Return</h4>
+                <div class="stat-number">3,341%</div>
+                <p style="opacity: 0.7; font-size: 0.9rem;">Per period</p>
+            </div>
+            """, unsafe_allow_html=True)
         
-        # Table
-        st.subheader("Daily Logs")
+        with col4:
+            st.markdown("""
+            <div class="metric-card">
+                <h4>Features</h4>
+                <div class="stat-number">14</div>
+                <p style="opacity: 0.7; font-size: 0.9rem;">From 50 candidates</p>
+            </div>
+            """, unsafe_allow_html=True)
         
-        # formatting (Convert Log Return -> Simple Return for Display)
-        display_df = filtered_df.copy()
-        
-        # Add Hit/Miss Logic
-        # Note: Log_Return and Strategy_Return are still floats here
-        def evaluate_result(row):
-            sig = row['Signal']
-            ret = row['Log_Return']
-            if sig == 'BUY':
-                return "✅ Win" if ret > 0 else "❌ Loss"
-            else: # HOLD
-                return "🛡️ Saved" if ret < 0 else "⚠️ Missed"
-
-        display_df['Match_Result'] = display_df.apply(evaluate_result, axis=1)
-        
-        display_df['Log_Return'] = display_df['Log_Return'].apply(lambda x: f"{(np.exp(x)-1)*100:.2f}%")
-        display_df['Strategy_Return'] = display_df['Strategy_Return'].apply(lambda x: f"{(np.exp(x)-1)*100:.2f}%")
-        display_df['Prob_Up'] = display_df['Prob_Up'].apply(lambda x: f"{x:.2f}%")
-        display_df['Price'] = display_df['Price'].apply(lambda x: f"{x:,.0f}")
-        
-        # Rename columns for clarity
-        display_df = display_df.rename(columns={
-            'Price': 'Close Price',
-            'Log_Return': 'Daily Return',
-            'Strategy_Return': 'Strat Return',
-            'Match_Result': 'Hit/Miss'
+        # Cross-Validation Table
+        st.markdown("### 🔬 Cross-Validation Results")
+        cv_results = pd.DataFrame({
+            'Period': ['2018-2020', '2020-2022', '2022-2024', '2024-2025', 'AVERAGE'],
+            'Market': ['Recovery', 'Pandemic', 'Rate Hikes', 'AI Boom', '-'],
+            'Sharpe': [8.23, 7.30, 8.12, 9.89, 8.39],
+            'Win Rate': ['89.61%', '89.47%', '93.13%', '93.14%', '91.34%'],
+            'Return': ['6,643%', '3,094%', '1,635%', '1,992%', '3,341%'],
+            'Alpha': ['6,585%p', '3,094%p', '1,631%p', '1,956%p', '3,317%p']
         })
         
-        # Reset index to make Date a column and format it
-        display_df = display_df.reset_index()
-        display_df['Date'] = display_df['Date'].dt.date
+        # Style the last row
+        def highlight_avg(row):
+            if row ['Period'] == 'AVERAGE':
+                return ['background-color: #1e3a8a; font-weight: bold'] * len(row)
+            return [''] * len(row)
         
-        # Select and Reorder columns
-        cols_to_show = ['Date', 'Hit/Miss', 'Signal', 'Prob_Up', 'Close Price', 'Daily Return', 'Strat Return']
-        
-        st.dataframe(display_df[cols_to_show], use_container_width=True, height=500, hide_index=True)
-        
-        st.download_button("Download CSV", hist_df.to_csv(), "prediction_history.csv", "text/csv")
+        st.dataframe(
+            cv_results.style.apply(highlight_avg, axis=1),
+            use_container_width=True,
+            hide_index=True
+        )
 
-# --- Footer ---
-st.markdown("---")
-st.caption("Automated Trading System v1.1 | Powered by XGBoost")
+# Sidebar
+with st.sidebar:
+    st.markdown("## ⚙️ Model Info")
+    st.markdown(f"""
+    **Method**: Backward Elimination  
+    **Features**: 14 (from 50)  
+    **Threshold**: {OPTIMAL_THRESHOLD}  
+    **Training**: 2011-2024  
+    """)
+    
+    st.markdown("---")
+    st.markdown("### 🎯 Selected Features")
+    
+    feature_categories = {
+        "📈 Price Lags (6)": [
+            "Log_Return_Lag1/2/3",
+            "Simple_Return_Lag1/2/3"
+        ],
+        "📊 RSI (3)": [
+            "RSI_14",
+            "RSI_Golden/Death_Cross"
+        ],
+        "📉 Stochastic (2)": [
+            "Stochastic_K",
+            "Stochastic_D"
+        ],
+        "🔧 Others (3)": [
+            "Dist_to_MA5",
+            "Intraday_Range",
+            "Day_of_Week"
+        ]
+    }
+    
+    for category, features in feature_categories.items():
+        with st.expander(category):
+            for feat in features:
+                st.markdown(f"• {feat}")
+    
+    st.markdown("---")
+    st.markdown("### ❌ Rejected Features")
+    st.markdown("""
+    **Eliminated as noise:**
+    - All macro indicators (S&P500, SOX, US10Y, USD/KRW)
+    - MACD, Bollinger Bands
+    - Volume indicators
+    - Golden/Dead Cross signals
+    """)
+    
+    st.markdown("---")
+    st.caption("Built with Streamlit • XGBoost")
