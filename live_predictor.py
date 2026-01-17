@@ -171,9 +171,12 @@ def get_live_prediction():
     display_features = future_input[features].to_dict('records')[0]
     display_features['Momentum_5D'] = last_row['Momentum_5D'].item() # Keep purely informational
     
+    # Calculate Target Date (Next Business Day)
+    next_date = last_date + pd.tseries.offsets.BusinessDay(n=1)
+
     live_result = {
         "status": "success",
-        "date_used": last_date.strftime('%Y-%m-%d'),
+        "date_used": next_date.strftime('%Y-%m-%d'),
         "prob_up": round(prob_up * 100, 2),
         "signal": signal,
         "features": display_features

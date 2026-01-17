@@ -137,7 +137,7 @@ with tab1:
             date_used = result['date_used']
             features = result['features']
             
-            st.markdown(f"#### 📅 Analysis Date: {date_used}")            
+            st.markdown(f"#### 📅 Target Date: {date_used}")            
             
             # --- Hero Dashboard (Unified Design) ---
             # Dynamic Colors
