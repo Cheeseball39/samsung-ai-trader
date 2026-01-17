@@ -57,7 +57,7 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("**Data History**")
-    st.caption("Recording since 2026-01-01")
+    st.caption("Recording since 2024-06-01")
     
     st.markdown("---")
     st.markdown("Created by **Antigravity**")
@@ -166,11 +166,11 @@ with tab1:
                 hist_df = result['history']
                 hist_df.to_csv('prediction_history.csv')
     else:
-        st.info("👋 Welcome! Click 'Explore New Data' to generate today's trading signal.")
+        st.info("👋 Welcome! Click 'Analyze New Data' to generate today's trading signal.")
 
 # === Tab 2: History ===
 with tab2:
-    st.header("📜 Prediction History (Since 2026-01-01)")
+    st.header("📜 Prediction History (Since 2024-06-01)")
     
     # Auto-load or Generate
     if not os.path.exists('prediction_history.csv'):
@@ -187,33 +187,50 @@ with tab2:
         hist_df.index = pd.to_datetime(hist_df.index)
         hist_df = hist_df.sort_index(ascending=False) # Newest first
         
-        # Stats
-        total_days = len(hist_df)
-        win_rate = (hist_df['Strategy_Return'] > 0).mean() * 100
-        cum_ret = (np.exp(hist_df['Strategy_Return'].cumsum()) - 1) * 100
-        last_cum = cum_ret.iloc[0] if not cum_ret.empty else 0 # Newest is [0] after sort? No, accumulated needs chronological
+        # --- Month Filter ---
+        # Get unique months from index
+        months = hist_df.index.strftime('%Y-%m').unique().tolist()
+        months.insert(0, 'All Time')
         
-        # Re-sort for Chart
-        hist_df_chrono = hist_df.sort_index(ascending=True)
-        equity = (np.exp(hist_df_chrono['Strategy_Return'].cumsum()) - 1) * 100
-        last_cum = equity.iloc[-1]
+        selected_month = st.selectbox("Select Month", months)
+        
+        if selected_month != 'All Time':
+            # Filter by month
+            filtered_df = hist_df[hist_df.index.strftime('%Y-%m') == selected_month]
+        else:
+            filtered_df = hist_df
+            
+        # Stats (Recalculate for filtered view)
+        total_days = len(filtered_df)
+        if total_days > 0:
+            win_rate = (filtered_df['Strategy_Return'] > 0).mean() * 100
+            # Cumulative return for this period
+            cum_ret = (np.exp(filtered_df['Strategy_Return'].cumsum()) - 1) * 100
+            period_return = cum_ret.iloc[-1]
+        else:
+            win_rate = 0
+            period_return = 0
         
         col1, col2, col3 = st.columns(3)
-        col1.metric("Total Trading Days", f"{total_days} Days")
-        col2.metric("Cumulative Return", f"{last_cum:.2f}%")
+        col1.metric("Trading Days", f"{total_days} Days")
+        col2.metric("Period Return", f"{period_return:.2f}%")
         col3.metric("Win Rate", f"{win_rate:.1f}%")
         
         # Chart
-        st.subheader("Equity Curve")
-        chart_data = pd.DataFrame({'Strategy': equity})
-        st.line_chart(chart_data)
+        st.subheader("Equity Curve (Selected Period)")
+        if not filtered_df.empty:
+            # Re-sort for Chart (Chronological)
+            chart_df = filtered_df.sort_index(ascending=True)
+            equity = (np.exp(chart_df['Strategy_Return'].cumsum()) - 1) * 100
+            st.line_chart(equity)
+        else:
+            st.info("No data for selected period.")
         
         # Table
         st.subheader("Daily Logs")
-        st.caption("Search by date (YYYY-MM-DD) or filter to see specific predictions.")
         
         # formatting
-        display_df = hist_df.copy()
+        display_df = filtered_df.copy()
         display_df['Log_Return'] = display_df['Log_Return'].apply(lambda x: f"{x*100:.2f}%")
         display_df['Strategy_Return'] = display_df['Strategy_Return'].apply(lambda x: f"{x*100:.2f}%")
         display_df['Prob_Up'] = display_df['Prob_Up'].apply(lambda x: f"{x:.2f}%")

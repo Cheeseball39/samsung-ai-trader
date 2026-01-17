@@ -43,8 +43,8 @@ def get_live_prediction():
     
     for name, ticker in tickers.items():
         try:
-            # period='1y' logic usually works better than explicit dates for robustness
-            df = yf.download(ticker, period='1y', progress=False)
+            # period='2y' to cover requested history from 2024.06
+            df = yf.download(ticker, period='2y', progress=False)
             
             # Handle MultiIndex columns (yfinance v0.2+)
             if isinstance(df.columns, pd.MultiIndex):
@@ -155,8 +155,8 @@ def get_live_prediction():
     }
     
     # --- Historical Batch Prediction (Optional) ---
-    # To check history from 2026-01-01
-    hist_start = '2026-01-01'
+    # To check history from 2024-06-01
+    hist_start = '2024-06-01'
     # Filter data from this date
     # data_clean index is Date.
     hist_data = data_clean[data_clean.index >= hist_start]
