@@ -92,7 +92,7 @@ with tab1:
             st.markdown(f"#### 📅 Data Date: {date_used} (Market Close)")
             
             # --- Top Dashboard (2 Columns) ---
-            col_left, col_right = st.columns([1, 2])
+            col_left, col_right = st.columns(2)
             
             with col_left:
                 # Signal Card
@@ -100,13 +100,14 @@ with tab1:
                 card_bg = "rgba(0, 204, 102, 0.1)" if signal == "BUY" else "rgba(122, 122, 122, 0.1)"
                 
                 st.markdown(f"""
-                <div class="metric-card" style="border: 2px solid {color}; background-color: {card_bg};">
-                    <div class="sub-signal">ACTION SIGNAL</div>
-                    <div class="big-signal" style="color: {color};">{signal}</div>
+                <div class="metric-card" style="border: 2px solid {color}; background-color: {card_bg}; text-align: center; padding: 20px;">
+                    <div class="sub-signal" style="font-size: 1.2rem; margin-bottom: 10px;">ACTION SIGNAL</div>
+                    <div class="big-signal" style="color: {color}; font-size: 3.5rem; font-weight: 800;">{signal}</div>
                 </div>
                 """, unsafe_allow_html=True)
                 
                 st.markdown("###") # Spacer
+                # Center the metric visually or just keep standard
                 st.metric(label="Win Probability", value=f"{prob:.2f}%", delta=f"{prob-61:.1f}% vs Threshold")
 
             with col_right:
@@ -115,7 +116,7 @@ with tab1:
                     mode = "gauge+number",
                     value = prob,
                     domain = {'x': [0, 1], 'y': [0, 1]},
-                    title = {'text': "<b>Bullish Probability</b>", 'font': {'size': 20}},
+                    title = {'text': "<b>Model Confidence</b>", 'font': {'size': 20}},
                     gauge = {
                         'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "white"},
                         'bar': {'color': color, 'thickness': 0.75},
@@ -130,7 +131,7 @@ with tab1:
                             'thickness': 0.8,
                             'value': 61}}))
                 
-                fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font={'color': "white", 'family': "Arial"})
+                fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font={'color': "white", 'family': "Arial"}, margin=dict(l=30, r=30, t=50, b=30))
                 st.plotly_chart(fig, use_container_width=True)
 
             # --- Feature Analysis Section ---
