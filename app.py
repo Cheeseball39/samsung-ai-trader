@@ -137,7 +137,7 @@ with tab1:
             date_used = result['date_used']
             features = result['features']
             
-            st.markdown(f"#### 📅 Data Date: {date_used} (Market Close)")
+            st.markdown(f"#### 📅 Analysis Date: {date_used}")            
             
             # --- Hero Dashboard (Unified Design) ---
             # Dynamic Colors
@@ -347,14 +347,14 @@ with tab2:
             'Match_Result': 'Hit/Miss'
         })
         
-        # Reorder columns
-        cols = ['date_used', 'Hit/Miss', 'Signal', 'Prob_Up', 'Close Price', 'Daily Return', 'Strat Return']
-        # Note: date_used is index. reset index to make it a column for display?
-        # st.dataframe handles index index automatically. Let's just pick columns.
-        cols_to_show = ['Hit/Miss', 'Signal', 'Prob_Up', 'Close Price', 'Daily Return', 'Strat Return']
-        # Check if other columns exist?
+        # Reset index to make Date a column and format it
+        display_df = display_df.reset_index()
+        display_df['Date'] = display_df['Date'].dt.date
         
-        st.dataframe(display_df[cols_to_show], use_container_width=True, height=500)
+        # Select and Reorder columns
+        cols_to_show = ['Date', 'Hit/Miss', 'Signal', 'Prob_Up', 'Close Price', 'Daily Return', 'Strat Return']
+        
+        st.dataframe(display_df[cols_to_show], use_container_width=True, height=500, hide_index=True)
         
         st.download_button("Download CSV", hist_df.to_csv(), "prediction_history.csv", "text/csv")
 
